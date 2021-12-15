@@ -1,0 +1,484 @@
+/*
+ASM ESD model code developed by Sourabh Khandelwal.
+
+THIS CODE CAN NOT BE SHARED OR DISTRIBUTED IN ORIGNAL OR MODFIED FORM WITHOUT WRITTEN PERMISSION OF THE DEVELOPER.
+*/
+
+`ifdef insideADMS
+ `define MODEL @(initial_model)
+ `define NOISE
+ `define ATTR(txt) (*txt*)
+ `define Gmin 1e-15
+`else
+ `define MODEL
+ `define NOISE
+ `define ATTR(txt)
+ `define Gmin $simparam("gmin",1e-15)
+`endif
+// Constants
+`define KB 1.3806226e-23 // Boltzmann constant (J/K)
+`define QQ 1.6021918e-19 // mag. of electronic charge (C)
+`define KBoQ 8.6170869e-05 //KB over QQ: `KB/`QQ
+`define Dexp_lim 80.0
+`define TMAX 1026.85
+`define TMIN -100.0
+`define MIN_R 0.00001
+`define OPI2 0.10132118 //1/PI/PI
+`define egta 7.0200e-04
+`define egtb 1.1080e+03
+`define REFTEMP 300.15 //27 degrees C
+`define Eg300 1.1150877
+`define Eg0 1.16 
+// Macro definitions
+`define OPP(nam,uni,des)               (*units=uni,                   desc=des*)           real    nam;
+`define OPM(nam,uni,des)               (* desc=des, units=uni, multiplicity="multiply" *)  real    nam;
+`define OPD(nam,uni,des)               (* desc=des, units=uni, multiplicity="divide"   *)  real    nam;
+`define MPRnb(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter real    nam=def;
+`define MPRex(nam,def,uni,exc,    des) (*units=uni,                   desc=des*) parameter real    nam=def exclude exc;
+`define MPRcc(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter real    nam=def from[lwr:upr];
+`define MPRoo(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter real    nam=def from(lwr:upr);
+`define MPRco(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter real    nam=def from[lwr:upr);
+`define MPRoc(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter real    nam=def from(lwr:upr];
+`define MPRcz(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter real    nam=def from[  0:inf);
+`define MPRoz(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter real    nam=def from(  0:inf);
+`define MPInb(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter integer nam=def;
+`define MPIex(nam,def,uni,exc,    des) (*units=uni,                   desc=des*) parameter integer nam=def exclude exc;
+`define MPIcc(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter integer nam=def from[lwr:upr];
+`define MPIoo(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter integer nam=def from(lwr:upr);
+`define MPIco(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter integer nam=def from[lwr:upr);
+`define MPIoc(nam,def,uni,lwr,upr,des) (*units=uni,                   desc=des*) parameter integer nam=def from(lwr:upr];
+`define MPIcz(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter integer nam=def from[  0:inf);
+`define MPIoz(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter integer nam=def from(  0:inf);
+`define MPIsw(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter integer nam=def from[  0:  2];
+`define MPIty(nam,def,uni,        des) (*units=uni,                   desc=des*) parameter integer nam=def from[ -1:  1] exclude 0;
+`define IPRnb(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def ;
+`define IPRex(nam,def,uni,exc,    des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def exclude exc;
+`define IPRcc(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from[lwr:upr];
+`define IPRoo(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from(lwr:upr);
+`define IPRco(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from[lwr:upr);
+`define IPRoc(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from(lwr:upr];
+`define IPRcz(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from[  0:inf);
+`define IPRoz(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter real    nam=def from(  0:inf);
+`define IPInb(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def;
+`define IPIex(nam,def,uni,exc,    des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def exclude exc;
+`define IPIcc(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from[lwr:upr];
+`define IPIoo(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from(lwr:upr);
+`define IPIco(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from[lwr:upr);
+`define IPIoc(nam,def,uni,lwr,upr,des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from(lwr:upr];
+`define IPIcz(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from[  0:inf);
+`define IPIoz(nam,def,uni,        des) (*units=uni, type="instance",  desc=des*) parameter integer nam=def from(  0:inf);
+`include "constants.h"
+`include "discipline.h"
+//================ begin macros ====================
+// Junction charge and capacitance calculation
+`define QJ(qjj,cj0,V,P,M,FC)\
+ dv0 = -P*FC;\
+ dvh = V+dv0;\
+ if (dvh>0.0) begin \
+ pwq = exp((-1.0-M)*ln(1.0-FC));\
+ qlo = P*(1.0-pwq*(1.0-FC)*(1.0-FC))/(1.0-M);\
+ qhi = dvh*(1.0-FC+0.5*M*dvh/P)*pwq;\
+ end else begin \
+ qlo = P*(1.0-exp((1.0-M)*ln(1.0-V/P)))/(1.0-M);\
+ qhi = 0.0;\
+ end\
+ qjj = cj0*(qlo+qhi);
+
+// Junction charge with no linearization factor (FC=0, substrate)
+`define QJZ(qjj,cj0,V,P,M)\
+ if (V <= 0) begin \
+ qjj = cj0*P*(1.0-exp((1.0-M)*ln(1.0-V/P)))/(1.0-M);\
+ end else begin \
+ qjj = cj0*V*(1+0.5*M*V/P);\
+ end
+
+// diode current with limitation
+`define IDIO(isat,nn,nbv,bvr,ijbv,ther,theexp,ud,  id)\
+ arg = ud/(nn*Vt);\
+ argbv = (-ud-bvr)/(nbv*Vt);\
+ argbvvt = (-bvr)/(nbv*Vt);\
+ if (isat > 0.0) begin \
+     if (arg > `Dexp_lim) begin \
+         le = (1.0 + (arg - `Dexp_lim));\
+         arg = `Dexp_lim;\
+     end else begin \
+         le = 1.0;\
+     end\
+     le = le*exp(arg);\
+     lebv = ln_exp_plus_1(argbv) - ln_exp_plus_1(argbvvt);\
+     id = isat*(le-1.0) - ijbv*lebv/(1.0 + ther*pow(abs(ud),theexp));\
+ end else begin \
+     id = 0.0;\
+ end
+
+ // Diode reverse current due to tunneling
+`define IDIOR(isatr,nnr,vtr,ud, idr)\
+ arg = (-1.0*ud*vtr)/(nnr*Vt*(vtr-ud));\
+ if (isatr > 0.0) begin \
+     if (arg > `Dexp_lim) begin \
+         le = (1.0 + (arg - `Dexp_lim));\
+         arg = `Dexp_lim;\
+     end else begin \
+         le = 1.0;\
+     end\
+     le = le*exp(arg);\
+     idr = isatr*(le-1.0);\
+ end else begin \
+     idr = 0.0;\
+ end
+
+// Temperature update of junction capacitance parameters
+`define TEMPCJ(cj,vj,mj,cj_t,vj_t) \
+ fact1 = Tnom/`REFTEMP; \
+ fact2 = Tdev/`REFTEMP; \
+ egfet = `Eg0-`egta*Tdev*Tdev/(`egtb+Tdev); \
+ arg0 = -egfet/(`KB*(Tdev+Tdev))+`Eg300/(`KB*(`REFTEMP+`REFTEMP)); \
+ pbfact = -(Vt+Vt)*(1.5*ln(fact2)+`QQ*arg0); \
+ pbo = (vj-pbfact)/fact1; \
+ gmaold = (vj-pbo)/pbo; \
+ cjt = cj/(1+mj*(4e-4*(Tnom-`REFTEMP)-gmaold)); \
+ vj_t = fact2*pbo+pbfact; \
+ gmanew = (vj_t-pbo)/pbo; \
+ cj_t = cjt*(1+mj*(4e-4*(Tdev-`REFTEMP)-gmanew)); \
+
+// Max and Min functions
+`define MAX(x,y) ((x)>(y)?(x):(y))
+`define MIN(x,y) ((x)<(y)?(x):(y))
+`define CLAMP(val,min,max) `MIN(max,`MAX(val,min))
+//================ end macros ====================//
+
+module asmesd(c,b,e,dt);
+//Node definitions
+inout c,b,e,dt;
+electrical c,b,e,ci,bi,ei;
+thermal dt, dt1;
+electrical tt, tbb;
+//Branch definitions
+
+analog function real ln_exp_plus_1;
+    input x; real x;
+    begin
+        if (x >= 37) begin
+            ln_exp_plus_1 = x;
+        end else if (x <= -37) begin
+            ln_exp_plus_1 = 0;
+        end else begin
+            ln_exp_plus_1 = ln(exp(x) + 1);
+        end
+    end
+endfunction
+
+branch (b,bi) br_bbi;
+branch (e,ei) br_eei;
+branch (c,ci) br_cci;
+branch (e,ci) br_eci;
+branch (ci,ei) br_ciei;
+branch (bi,ei) br_biei;
+branch (bi,ci) br_bici;
+branch (b,ci) br_bci;
+branch (dt) rth;
+branch (dt) ith;
+branch (tt) itt;
+branch (tt) rtt;
+branch (tt) ctt;
+branch (tbb) itbb;
+branch (tbb) rtbb;
+branch (tbb) ctbb;
+// Model Parameters
+    `MPRcc( is           ,1.0e-16        ,"A"         ,0.0         ,1.0         ," Transport saturation current" )
+    `MPRco( bf           ,15.0           ,""          ,0.0         ,inf         ,"ideal maximum forward beta" )
+    `MPRoo( nf           ,1.0            ,""          ,0.0         ,inf         ,"forward current emission coefficient" )
+    `MPRco( vaf          ,0.0            ,"V"         ,0.0         ,inf         ,"forward early voltage" )
+    `MPRcc( ikf          ,0.0            ,"A"         ,0.0         ,1000.0      ,"corner for forward beta high current roll-off" )
+    `MPRcc( isr          ,0.0            ,"A"         ,0.0         ,1.0         ,"tunnel current coefficient" )
+    `MPRoc( ntr          ,5.0            ,""          ,0.0         ,500.0       ,"reverse tunnel emission coefficient" )
+    `MPRco( vtr          ,10.0           ,""          ,0.0         ,inf         ,"reverse tunnel current parameter" )
+    `MPRco( bvr          ,10.0           ,""          ,1.0         ,inf         ,"reverse breakdown voltage" )
+    `MPRoo( xbvr         ,0.0            ,""          ,-inf         ,inf        ,"temperature dependence of reverse breakdown voltage" )
+    `MPRco( xjbv         ,5.0            ,""          ,0.0         ,inf         ,"reverse breakdown voltage multiplier factor" )
+    `MPRco( ijbv         ,5.0            ,""          ,0.0         ,inf         ,"reverse breakdown voltage multiplier factor" )
+    `MPRco( ther         ,0.01           ,""          ,0.0         ,inf         ,"reverse breakdown resistance" )
+    `MPRco( theexp       ,1.11           ,""          ,0.0         ,inf         ,"post reverse breakdown current model exponent" )
+    `MPRoo( xtheexp      ,0.0            ,""          ,-inf         ,inf        ,"temperature dependence of post reverse breakdown current model exponent" )
+    `MPRco( xjbvc        ,5.0            ,""          ,0.0         ,inf         ,"reverse breakdown voltage multiplier factor" )
+    `MPRco( ijbvc        ,0.0            ,""          ,0.0         ,inf         ,"reverse breakdown voltage multiplier factor" )
+    `MPRoc( nbv          ,10.0           ,""          ,0.0         ,500.0       ,"current slope near breakdown" )
+    `MPRoc( nbvc         ,20.0           ,""          ,0.0         ,500.0       ,"current slope near breakdown" )
+    `MPRcc( ise          ,0.0            ,"A"         ,0.0         ,1.0         ,"B-E leakage saturation current" )
+    `MPRoc( ne           ,1.5            ,""          ,0.0         ,10.0        ,"B-E leakage emission coefficient" )
+    `MPRco( br           ,1.0            ,""          ,0.0         ,inf         ,"ideal maximum reverse beta" )
+    `MPRoc( nr           ,10.0           ,""          ,0.0         ,10.0        ,"reverse current emission coefficient" )
+    `MPRco( var          ,0.0            ,""          ,0.0         ,inf         ,"reverse early voltage, 0 signifies infinity" )
+    `MPRcc( ikr          ,0.0            ,"A"         ,0.0         ,1.0         ,"corner for reverse beta high current roll-off, 0 signifies infinity" )
+    `MPRcc( isc          ,0.0            ,"A"         ,0.0         ,1.0         ,"B-C leakage saturation current" )
+    `MPRoc( nc           ,2.0            ,""          ,0.0         ,10.0        ,"B-C leakage emission coefficient" )
+    `MPRco( rb           ,0.0            ,"A"         ,0.0         ,inf         ,"base resistance parameter" )
+    `MPRco( rbe          ,0.0            ,"Ohm"       ,0.0         ,inf         ,"base resistance p-cell" )
+    `MPRcc( irb          ,0.0            ,"A"         ,0.0         ,10.0        ,"current where base resistance falls halfway to its min value" )
+    `MPRco( rbm          ,0.0            ,"Ohm"       ,0.0         ,inf         ,"min base resistance" )
+    `MPRco( re           ,0.0            ,"A"         ,0.0         ,inf         ,"emitter resistance parameter" )
+    `MPRco( ree          ,0.0            ,"Ohm"       ,0.0         ,inf         ,"emitter resistance p-cell" )
+    `MPRco( rc           ,0.0            ,"A"         ,0.0         ,inf         ,"emitter resistance parameter" )
+    `MPRco( rce          ,0.0            ,"Ohm"       ,0.0         ,inf         ,"emitter resistance p-cell" )
+    `MPRco( cje          ,0.0            ,""          ,0.0         ,inf         ,"B-E zero-bias depletion capacitance")
+    `MPRco( vje          ,0.75           ,""          ,0.0         ,inf         ,"B-E built-in potential")
+    `MPRoc( mje          ,0.33           ,""          ,0.0         ,1.0         ,"B-E junction exponential factor")
+    `MPRco( tf           ,0.00           ,""          ,0.0         ,inf         ,"ideal forward transit time")
+    `MPRoo( vtt0         ,0.00           ,""          ,0.0         ,inf         ,"base resistance charge dependence parameter")
+    `MPRco( ptf          ,0.00           ,""          ,0.0         ,inf         ,"excess phase at freq=1.0/(tf*2pi) Hz")
+    `MPRco( cjc          ,0.00           ,""          ,0.0         ,inf         ,"B-C zero bias depletion capacitance")
+    `MPRco( vjc          ,0.7500         ,""          ,0.0         ,inf         ,"B-C built in potential")
+    `MPRoc( mjc          ,0.33           ,""          ,0.0         ,1.0         ,"B-C junction exponential factor")
+    `MPRcc( xcjc         ,1.000          ,""          ,0.0         ,1.0         ,"fraction of B-C depletion capacitance connected to internal base node")
+    `MPRco( tr           ,0.00           ,""          ,0.0         ,inf         ,"ideal reverse transit time")
+    `MPRco( cjs          ,0.00           ,""          ,0.0         ,inf         ,"zero bias collector substrate capacitance")
+    `MPRco( vjs          ,0.75           ,""          ,0.0         ,inf         ,"substrate junction built-in potential")
+    `MPRoc( mjs          ,0.33           ,""          ,0.0         ,1.0         ,"substrate junction exponential factor")
+    `MPRco( xtb          ,1.00           ,""          ,-10.0       ,10.0        ,"forward and reverse beta temperature exponent")
+    `MPRcc( eg           ,1.11000        ,""          ,0.0         ,10.0        ,"band gap for temperature effect on iv")
+    `MPRco( xti          ,3.00           ,""          ,0.0         ,20.0        ,"temperature exponent for IS")
+    `MPRco( xtir         ,3.00           ,""          ,-20.0       ,20.0        ,"temperature exponent for reverse current")
+    `MPRco( fc           ,0.5            ,""          ,0.0         ,1.0         ,"coefficient for forward bias depletion capacitance formula")
+    `MPRcc( tnom         ,25.0           ,""          ,-40         ,125.0       ,"nominal temperature at which parameters are extracted")
+    `MPRcc( tfail        ,1000.0         ,""          ,0.0         ,1200.0      ,"failure temperature")
+    `MPRco( kf           ,0.0            ,""          ,0.0         ,inf         ,"flicker noise coefficient")
+    `MPRco( af           ,1.0            ,""          ,0.0         ,10.0        ,"flicker noise exponent")
+    `MPIcc( type         ,1              ,""          ,-1          ,1           ,"transistor type")
+    `MPIsw( shmod        ,1              ,""                                    ," Switch to turn on and off self-heating model" )
+    `MPIsw( extmod       ,0              ,""                                    ," Switch to turn on and off extricsic p-cell parasitic model" )
+    `MPIsw( rbmod        ,1              ,""                                    ," Switch to change base resistance model formulation" )
+    `MPRoo( rth0         ,5.0            ,"K/w"         ,0.0        ,inf        ," Thermal Resistance" )
+    `MPRco( cth0         ,1.0e-9         ,"s*w/K"       ,0.0        ,inf        ," Thermal Capacitance" )
+    `MPRoo( rth1         ,5.0            ,"K/w"         ,0.0        ,inf        ," Thermal Resistance" )
+    `MPRco( cth1         ,1.0e-9         ,"s*w/K"       ,0.0        ,inf        ," Thermal Capacitance" )
+    `MPRco( arb          ,0.0            ,"s*w/K"       ,0.0        ,inf        ," Temperature dependence base resistor" )
+    `MPRco( arc          ,0.0            ,"s*w/K"       ,0.0        ,inf        ," Temperature dependence collector resistor" )
+    `MPRco( are          ,0.0            ,"s*w/K"       ,0.0        ,inf        ," Temperature dependence emmitter resistor" )
+    `MPRco( kbwm         ,0.0            ,"K/w"         ,0.0        ,inf        ," Base width modulation effect on beta" )
+    `MPRco( xbwm         ,1.0            ,"K/w"         ,0.0        ,inf        ," Base width modulation effect on beta exponent factor" )
+    `MPRco( ikbwm        ,0.0            ,"K/w"         ,0.0        ,inf        ," Base width modulation effect on beta exponent factor" )
+    `MPRco( xkf          ,0.9            ,"K/w"         ,0.0        ,inf        ," Base width modulation effect on beta exponent factor" )
+    `MPRco( texp         ,0.0            ," "           ,0.0        ,inf        ," Transit time field dependence exponent" )
+    `MPRco( vtf0         ,1.0            ," "           ,1.0        ,inf        ," Transit time voltage/field threshold" )
+    `MPRco( atff         ,0.0            ," "           ,0.0        ,inf        ," Transit time field dependence multiplier" )
+    `MPRco( cthbb        ,1.0e-9         ,"F"           ,0.0        ,inf        ," Delayed BJT Ic time constant parameter" )
+    `MPRco( abeta        ,0.0            ,"F"           ,0.0        ,inf        ," Delayed BJT Ic parameter" )
+    `IPRco( l            ,10.0e-6        ,"m"           ,20e-9      ,inf        ," Finger Length" )
+    `IPIco( n            ,1              ,""            ,1.0        ,inf        ," Number of fingers" )
+    `IPRco( lca          ,10.0e-6        ,"m"           ,20e-9      ,inf        ," Distance between anode and cathode" )
+    `MPRoo( vsatb        ,100.0          ," "           ,0.0        ,inf        ," Voltage where velocity saturation starts in cathode resistor" )
+    `MPRoo( mexp         ,2.0            ," "           ,0.0        ,inf        ," Velocity saturation exponent parameter" )
+    `MPRco( qexp         ,1.0            ," "           ,0.0        ,inf        ," Charge dependence of base resistance exponent parameter" )
+`ifdef insideADMS
+ parameter real temp = 2.5000e+01 `ATTR(info="ambient temperature in C" unit="C");
+`endif
+// variable declaration 
+real arg,le,lebv,weff;
+real dv0,dvh,pwq,qlo,qhi;
+real ttype,Tdev,Tnom,Tamb,rT,lnrT,Vt;
+real bf_t,br_t,tbeta,is_t,ise_t,isc_t,cje_t,cjc_t,cjs_t,vje_t,vjc_t,vjs_t;
+real ijbv_t, ijbvc_t, bvr_t, theexp_t;
+real cje_i, cjc_i, cjs_i;
+real ifwd,ibe2,Ibe,ibwd,ibc2,Ibc,Ib,iKq1,Kq2,iKqb,Itzf,Itr;
+real itrev;
+real Rb,Rc,Re,tff,Qde,Qdc,Qjs,Qje,qjcx,Qjcx,qjci,Qjci;
+real hib,z1,zed,tanz,ftan;
+real Qxf1;
+real ovaf,ovar,oikf,oikr,argt,fourkt,twoq,flicker_Pwr,noipwr_Rb,noipwr_re,noipwr_rc;
+real Veci,Vbiei,Vbici,Vbci;
+real fact1,fact2,egfet,arg0,pbfact,pbo,gmaold,gmanew,cjt;
+real argbv, argbvvt, argtr, isr_t;
+real Fbwm, Vbc, Dkqb;
+real Vtff;
+real vbesat;
+real stbb, t0;
+//real Vbbi, Veei, Vcci, Vciei;
+analog begin
+`MODEL begin : Model_initialization
+// Temperature mappings (code independent of bias)
+`ifdef insideADMS
+    Tamb = temp+`P_CELSIUS0;
+`else
+    Tamb = $temperature + Temp(dt);
+`endif
+ Tdev = `CLAMP((Tamb),(`TMIN+`P_CELSIUS0),(`TMAX+`P_CELSIUS0));
+
+ if (Tdev>tfail) begin
+     $strobe("Device temperature has reached failure");
+ end
+
+ weff = n*l; 
+ Vbc   = type*V(br_bici);
+ Fbwm  = 1.0 + kbwm*pow(-min(Vbc,0.0),xbwm);
+ Tnom = tnom+`P_CELSIUS0;
+ Vt = `KBoQ*Tdev;
+ rT = Tdev/Tnom;
+ lnrT = ln(rT);
+ tbeta = exp(xtb*lnrT);
+ bf_t = bf*tbeta*Fbwm;
+ br_t = br*tbeta;
+ ovaf = ((vaf)>(0)?(1/vaf):(0));
+ ovar = ((var)>(0)?(1/var):(0));
+ oikf = ((ikf)>(0)?(1.0/ikf):(0));
+ oikr = ((ikr)>(0)?(1/ikr):(0));
+ argt = xti*lnrT+eg*(rT-1)/Vt;
+ argtr = xtir*lnrT;
+ is_t = is*exp(argt);
+ isr_t = isr*exp(argtr);
+ ise_t = ise*exp(argt/ne)/tbeta;
+ isc_t = isc*exp(argt/nc)/tbeta;
+ ijbv_t = ijbv*(1.0 + xjbv*(rT-1.0));
+ bvr_t = bvr*(1.0 + xbvr*(rT-1.0));
+ theexp_t = theexp*(1.0 + xtheexp*(rT-1.0));
+ ijbvc_t = ijbvc*(1.0 + xjbvc*(rT-1.0));
+  cje_i = cje;
+  cjc_i = cjc;
+  cjs_i = cjs;
+ `TEMPCJ(cje_i,vje,mje,cje_t,vje_t)
+ `TEMPCJ(cjc_i,vjc,mjc,cjc_t,vjc_t)
+ `TEMPCJ(cjs_i,vjs,mjs,cjs_t,vjs_t)
+end //of Model_initialization
+ttype = type;
+//Vbbi = ttype*V(br_bbi);
+//Veei = ttype*V(br_eei);
+//Vcci = ttype*V(br_cci);
+Veci = ttype*V(br_eci);
+//Vciei = ttype*V(br_ciei);
+Vbiei = ttype*V(br_biei);
+Vbici = ttype*V(br_bici);
+Vbci = ttype*V(br_bci);
+begin : Model_evaluation
+ //currents
+ `IDIO(is_t,nf,nbv,bvr_t,ijbv_t,ther,theexp_t,Vbiei,  ifwd)
+ `IDIOR(isr_t,ntr,vtr,Vbiei,  itrev)
+ `IDIO(ise_t,ne,nbvc,bvr_t,0.0,ther,theexp_t,Vbiei,  ibe2)
+ `IDIO(is_t,nr,nbvc,bvr_t,ijbvc_t,ther,theexp_t,Vbici,  ibwd)
+ `IDIO(isc_t,nc,nbvc,bvr_t,0.0,ther,theexp, Vbici,  ibc2)
+
+ stbb = ifwd;
+ t0 = exp(-2.0*stbb);
+ stbb = (1-t0)/(1+t0);
+ I(itbb) <+ -1.0*abs(stbb);
+ I(rtbb) <+ V(tbb)*1.0;
+ I(ctbb) <+ cthbb*ddt(V(tbb));
+ bf_t = bf_t*(1.0 + abeta*abs(V(tbb)/max(stbb,1.0e-6))); 
+
+ Ibe = (ifwd-itrev)/bf_t+ibe2;
+ Ibc = ibwd/br_t+ibc2;
+ Ib = Ibe+Ibc;
+ oikf = oikf*(1.0 + Vbici*ikbwm);
+ Kq2 = ifwd*oikf+ibwd*oikr;
+ iKq1 = 1.0-Vbiei*ovar-Vbici*ovaf;
+ Dkqb = 1.0 + pow(1.0 + 4.0*Kq2,xkf); 
+ iKqb = 2*iKq1/Dkqb;
+ Itr = ibwd*iKqb;
+ Itzf = ifwd*iKqb;
+ //bias dependent base resistance
+ if (rbmod==0) begin
+     if (irb == 0) begin
+         Rb = rbm+(rb-rbm)*iKqb;
+         Rb = Rb*pow(rT,arb);
+     end else begin
+         hib = Ib/irb;
+         z1 = sqrt(1+144*hib*(`OPI2))-1;
+         zed = z1/(24*sqrt(hib)*(`OPI2));
+         tanz = tan(zed);
+         ftan = 3*(tanz-zed)/(zed*tanz*tanz);
+         Rb = rbm+(rb-rbm)*ftan;
+         Rb = Rb*pow(rT,arb);
+     end
+end else begin
+    vbesat = 1.0 + pow(abs(Vbiei/vsatb),mexp);
+    Rb = rb*pow(vbesat,1.0/mexp);
+    Rb = Rb*pow(rT,arb);
+end
+ Rc = rc*pow(rT,arc);
+ Re = re*pow(rT,are);
+ //effective transit time
+ Vtff = pow(abs(Vbiei/vtf0),texp);
+ tff = tf*(1.0 + atff*Vtff);  
+ //diffusion charges
+ Qde = tff*Itzf;
+ Qdc = tr*Itr;
+ // Charge transit time model
+ I(itt) <+ Itzf;
+ I(rtt) <+ V(tt)*1.0;
+ I(ctt) <+ (tff)*ddt(V(tt));
+ Rb = Rb/(1.0 + pow((abs(V(tt))/vtt0),qexp));
+ if (extmod == 1) begin
+     Rb = Rb + rbe;
+     Rc = Rc + rce;
+     Re = Re + ree;
+ end
+ //junction charges
+ `QJZ(Qjs,cjs_t,Veci,vjs_t,mjs) 
+ `QJ(Qje,cje_t,Vbiei,vje_t,mje,fc)
+ `QJ(qjcx,cjc_t,Vbci,vjc_t,mjc,fc)
+ Qjcx = (1-xcjc)*qjcx;
+ `QJ(qjci,cjc_t,Vbici,vjc_t,mjc,fc)
+ Qjci = xcjc*qjci;
+ // Excess Phase calculation (Klose-Wieder charge partitioning)
+ if (ptf != 0 && tf != 0) begin
+     Qxf1 = ttype*ptf*`M_PI/180*tf*Itzf;
+ end else begin
+     Qxf1 = 0;
+ end
+end 
+
+if (shmod == 1 && rth0>0) begin
+    Pwr(ith) <+ -1.0*abs(Ibe*V(b,e))-abs(Ibc*V(b,c));
+    Pwr(rth) <+ Temp(rth)/rth0;
+    Pwr(rth) <+ ddt(Temp(rth)*cth0);
+end else if (shmod == 2) begin
+    Pwr(ith) <+ -1.0*abs(Ibe*V(b,e))-abs(Ibc*V(b,c));
+    Pwr(dt,dt1) <+ Temp(dt,dt1)/rth0;
+    Pwr(dt)    <+ ddt(cth0*Temp(dt));
+    Pwr(dt1)   <+ Temp(dt1)/rth1;
+    Pwr(dt1)   <+ ddt(cth1*Temp(dt1));
+end else begin
+    Temp(dt) <+ 0.0 ;
+end
+
+begin : Load_sources
+ I(br_biei) <+ `Gmin*V(br_biei);
+ I(br_bici) <+ `Gmin*V(br_bici);
+ I(br_ciei) <+ `Gmin*V(br_ciei);
+ I(br_bbi)  <+ V(br_bbi)/(`MAX(Rb/weff,`MIN_R));
+ I(br_eei)  <+ V(br_eei)/(`MAX(Re/weff,`MIN_R));
+ I(br_cci)  <+ V(br_cci)/(`MAX(Rc/weff,`MIN_R));
+ I(br_biei) <+ ttype*Ibe*weff;
+ I(br_bici) <+ ttype*Ibc*weff;
+ I(br_ciei) <+ ttype*(-Itr*weff);
+ I(br_ciei) <+ ttype*Itzf*weff;
+ I(br_biei) <+ ddt(ttype*Qje*weff);
+ I(br_biei) <+ ddt(ttype*Qde*weff);
+ I(br_bci)  <+ ddt(ttype*Qjcx*weff);
+ I(br_bici) <+ ddt(ttype*Qjci*weff);
+ I(br_bici) <+ ddt(ttype*Qdc*weff);
+ I(br_eci)  <+ ddt(ttype*Qjs*weff);
+ I(br_biei) <+ ddt((-Qxf1*weff));
+ I(br_bici) <+ ddt((Qxf1*weff));
+end //of Load_sources
+
+`NOISE begin : Noise_sources
+ //Thermal noise
+ fourkt = 4.0 * `P_K * Tdev;
+ noipwr_Rb = (((Rb)>=(`MIN_R))?(fourkt/Rb):(0));
+ I(br_bbi) <+ white_noise(noipwr_Rb, "Rb");
+ noipwr_re = (((re)>=(`MIN_R))?(fourkt/re):(0));
+ I(br_eei) <+ white_noise(noipwr_re, "re");
+ noipwr_rc = (((rc)>=(`MIN_R))?(fourkt/rc):(0));
+ I(br_cci) <+ white_noise(noipwr_rc, "rc");
+ 
+ //Flicker noise
+ flicker_Pwr = (((af > 0) && (kf > 0))>(0)?(kf*exp(af*ln(abs(Ibe)))):(0));
+ I(br_biei) <+ flicker_noise(flicker_Pwr,1.0, "flicker_Ibe");
+
+ //shot noise
+ twoq = 2.0 * `P_Q;
+ I(br_biei) <+ white_noise(twoq*abs(Ibe),"Ibe");
+ I(br_ciei) <+ white_noise(twoq*abs(Itzf-Itr),"It");
+end //Noise sources
+
+end //analog
+endmodule
